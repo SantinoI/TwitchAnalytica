@@ -14,7 +14,7 @@ const app = express();
 const router = express.Router();
 
 const jwt = require('jsonwebtoken');
-const verifytoken = require('./middlewares/verifytoken');
+const verifytoken = require('./middleware/verifytoken');
 
 const bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -179,7 +179,6 @@ router.get('/singup', (req, res, next) => {
           }
           else {
             user["userTwitchId"] = user["id"]
-            user["gameTags"] = []
             delete user["id"]
 
             const params = { TableName: "usersTable", Item: user };
