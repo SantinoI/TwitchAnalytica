@@ -4,10 +4,11 @@ const { v4: uuidv4 } = require('uuid');
 const superagent = require('superagent');
 const async = require('async');
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const AWS = require("aws-sdk");
 
-// AWS.config.update(config.aws);
-// const docClient = new AWS.DynamoDB.DocumentClient();
+AWS.config.update(config.aws);
+const docClient = new AWS.DynamoDB.DocumentClient();
 
 const app = express();
 const router = express.Router();
@@ -31,24 +32,12 @@ app.use(function (req, res, next) {
 });
 
 app.use('/api/v1', router);
-// app.set('secretforjwt', config.secret);
+app.set('secretforjwt', config.secret);
 
-// https://docs.aws.amazon.com/it_it/amazondynamodb/latest/developerguide/GettingStarted.NodeJs.html
 // https://id.twitch.tv/oauth2/authorize?client_id=pb61bwxg5i85ob9vhxmwkm551sdr9u&redirect_uri=http://localhost:3000/api/v1/singup&response_type=code&scope=user:edit:broadcast user:read:email
-/*
-POST https://id.twitch.tv/oauth2/token
-    ?client_id=<your client ID>
-    &client_secret=<your client secret>
-    &code=<authorization code received above>
-    &grant_type=authorization_code
-    &redirect_uri=<your registered redirect URI>
-*/
 
-/*
-router.get('/welcome', (req, res, next) => {
-	return res.status(201).json({ message: "Ciao ragazzi come va, benvenuti....."});
-})
-*/
+// https://www.npmjs.com/package/async-waterfall
+// https://visionmedia.github.io/superagent/
 
 router.get('/singup', (req, res, next) => {
     // console.log("First request received", req.query)
@@ -58,38 +47,36 @@ router.get('/singup', (req, res, next) => {
         client_secret: config.twitch.client_secret,
         code: req.query.code,
         grant_type: "authorization_code",
-        redirect_uri: "http://localhost:3000/api/v1/singup" 
+        redirect_uri: "http://localhost:3000/api/v1/singup"
     }
-    console.log("Create args for 2th request", params)
-
-    // https://www.npmjs.com/package/async-waterfall
-    // https://visionmedia.github.io/superagent/
+    // console.log("Create args for 2th request", params)
 
     async.waterfall([
       (callback) => {
+
+        /*
+          POST https://id.twitch.tv/oauth2/token
+              ?client_id=<your client ID>
+              &client_secret=<your client secret>
+              &code=<authorization code received above>
+              &grant_type=authorization_code
+              &redirect_uri=<your registered redirect URI>
+        */
+
         superagent
           .post('https://id.twitch.tv/oauth2/token')
           .send(params)
           .set('Accept', 'application/json')
           .then((response) => {
-            // console.log('response', response);
             const { access_token } = response.body;
-            console.log('generate_access_token_response', response.body);
-
-            if (!access_token) {
-              callback(null, true, {
-                success: false,
-                message: 'Error: Invalid code'
-              });
-            } else {
-              callback(null, false, { access_token: access_token });
-            }
+            if (!access_token) callback(null, true, { success: false, message: 'Error: Invalid code'});
+            else callback(null, true, { access_token: access_token });
           }).catch((error) => {
             console.error(error)
             callback(null, false, error);
         });
       },
-      (hasCompleted, results, callback) => {
+      (success, results, callback) => {
 
         /*
             curl  -H 'Client-ID: uo6dggojyb8d6soh92zknwmi5ej1q2' \
@@ -97,57 +84,55 @@ router.get('/singup', (req, res, next) => {
             -X GET 'https://api.twitch.tv/helix/users?id=44322889'
         */
 
-        if (hasCompleted) {
-          callback(null, hasCompleted, results);
-        } else {
+        if (!success) callback(null, success, results);
+        else {
           const access_token = results.access_token;
 
-          console.log("2th callback", `'Bearer ${access_token}`)
-          // Get User
           superagent
             .get('https://api.twitch.tv/helix/users')
             .set('Client-ID', config.twitch.client_id)
             .set('Authorization', `Bearer ${access_token}`)
             .then((responseUser) => {
               const userBody = responseUser.body;
-              // console.log('get_user_response', responseUser.body);
-
               callback(null, true, { access_token: access_token, user: userBody });
-
             }).catch((error) => {
                 console.error(error)
                 callback(null, false, error);
             });
-        } // end of else for hasCompleted
-      }
-    ], (err, status, data) => {
-        // console.log(status, data);
-
-        if(status == true) res.status(201).json({ "message": "Signed in", "data": data, "success": true })
-        else res.status(400).json({ "message": "Something went wrong", "data": data, "success": false })
-
-    }); // end of async waterfall
-
-    // The following code is for DynamoDB. 
-
-    /*
-    const params = {
-        TableName: "users",
-        Item: {
-            "userId": uuidv4(),
-            "username": movie.title,
-            "info":  movie.info
         }
-    };
+      },
+      (success, results, callback) => {
+        if (!success) callback(null, success, results);
+        else {
+          // The following code is for DynamoDB.
+          // https://www.dynamodbguide.com/updating-deleting-items/
+          // https://docs.aws.amazon.com/it_it/amazondynamodb/latest/developerguide/GettingStarted.NodeJs.html
+          let user = results.user.data[0];
+          user["userId"] = uuidv4()
+          user["access_token"] = results.access_token
+          user["userTwitchId"] = user["id"]
+          delete user["id"]
 
-    docClient.put(params, function(err, data) {
-       if (err) {
-           console.error("Unable to add movie", movie.title, ". Error JSON:", JSON.stringify(err, null, 2));
-       } else {
-           console.log("PutItem succeeded:", movie.title);
-       }
+          const params = { TableName: "usersTable", Item: user };
+
+          docClient.put(params, function(error, data) {
+            if (error) {
+              console.error("Unable to add user", user.login, ". Error JSON:", JSON.stringify(error, null, 2));
+              callback(null, false, error);
+            } else {
+              let payload = { username: user.login, userId: user.userId, userTwitchId: user.userTwitchId }
+              let token = jwt.sign(payload, app.get('secretforjwt'), { expiresIn: "99 days" });
+              callback(null, true, token);  // Success
+            }
+          });
+        }
+      }
+
+    ], (err, status, data) => {
+        if(status == true) res.status(201).json({ "message": "Signed in", "error": null, "access_token": data, "success": true })
+        else res.status(400).json({ "message": "Something went wrong", "error": data, "access_token": null, "success": false })
     });
-    */
+
 });
 
 var port = config.port;

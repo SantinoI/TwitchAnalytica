@@ -1,12 +1,13 @@
 module.exports = {
     'secret': '',
     'port': process.env.PORT || 3000,
-    'aws': { 
+    'aws': {
         'region': "",
-        'endpoint': ""	
+        'endpoint': ""
     },
     'twitch': {
         'client_id': "",
         'client_secret': ""
-    }
+    },
+    'secret': ""
 };
