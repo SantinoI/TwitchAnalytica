@@ -2,19 +2,11 @@
   "TableName": "usersTable",
   "KeySchema": [
     {
-      "AttributeName": "userId",
-      "KeyType": "HASH"
-    },
-    {
       "AttributeName": "userTwitchId",
-      "KeyType": "RANGE"
+      "KeyType": "HASH"
     }
   ],
   "AttributeDefinitions": [
-    {
-      "AttributeName": "userId",
-      "AttributeType": "S"
-    },
     {
       "AttributeName": "userTwitchId",
       "AttributeType": "S"

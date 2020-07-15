@@ -1,20 +1,20 @@
 const config = require('./config/main');
 
-const { v4: uuidv4 } = require('uuid');
+// const { v4: uuidv4 } = require('uuid');
 const superagent = require('superagent');
 const async = require('async');
 const express = require('express');
-const jwt = require('jsonwebtoken');
-const AWS = require("aws-sdk");
 
+const AWS = require("aws-sdk");
 AWS.config.update(config.aws);
-const docClient = new AWS.DynamoDB.DocumentClient();
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 const app = express();
 const router = express.Router();
 
-// const jwt = require('jsonwebtoken');
-// const verifytoken = require('./middlewares/verifytoken');
+const jwt = require('jsonwebtoken');
+const verifytoken = require('./middlewares/verifytoken');
 
 const bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -39,8 +39,44 @@ app.set('secretforjwt', config.secret);
 // https://www.npmjs.com/package/async-waterfall
 // https://visionmedia.github.io/superagent/
 
+// https://www.dynamodbguide.com/updating-deleting-items/
+// https://docs.aws.amazon.com/it_it/amazondynamodb/latest/developerguide/GettingStarted.NodeJs.html
+
+
+router.get('/profile', verifytoken, (req, res, next) => {
+  const params = {
+    TableName: "usersTable",
+    Key: { userTwitchId:  req.decoded.userTwitchId }
+  };
+
+  dynamodb.get(params, function(error, data) {
+      if (error) {
+          console.error("Unable to read item. Error JSON:", JSON.stringify(error, null, 2));
+          res.status(400).json({ "error": error, "data": null, "success": false })
+      } else {
+          if (Object.keys(data).length != 0) res.status(201).json({ "error": null, "data": data.Item, "success": true })
+          else res.status(400).json({ "error": data, "data": null, "success": false })
+      }
+  });
+})
+
+router.post('/profile', verifytoken, (req, res, next) => {
+  const params = {
+      TableName: "usersTable",
+      Key: { userTwitchId: req.decoded.userTwitchId },
+      UpdateExpression: "set gameTags = :gameTags",
+      ExpressionAttributeValues:{ ":gameTags": req.body.gameTags },
+      ReturnValues: "ALL_NEW"
+  };
+  dynamodb.update(params, function(error, data) {
+    if (error) {
+      console.error("Unable to update item. Error JSON:", JSON.stringify(error, null, 2));
+      res.status(400).json({ "error": data, "data": null, "success": false })
+    } else res.status(201).json({ "error": null, "data": data, "success": true })
+  });
+})
+
 router.get('/singup', (req, res, next) => {
-    // console.log("First request received", req.query)
 
     const params = {
         client_id: config.twitch.client_id,
@@ -49,7 +85,6 @@ router.get('/singup', (req, res, next) => {
         grant_type: "authorization_code",
         redirect_uri: "http://localhost:3000/api/v1/singup"
     }
-    // console.log("Create args for 2th request", params)
 
     async.waterfall([
       (callback) => {
@@ -102,34 +137,67 @@ router.get('/singup', (req, res, next) => {
         }
       },
       (success, results, callback) => {
-        if (!success) callback(null, success, results);
-        else {
-          // The following code is for DynamoDB.
-          // https://www.dynamodbguide.com/updating-deleting-items/
-          // https://docs.aws.amazon.com/it_it/amazondynamodb/latest/developerguide/GettingStarted.NodeJs.html
-          let user = results.user.data[0];
-          user["userId"] = uuidv4()
+          if (!success) callback(null, success, results);
+          else {
+
+            let user = results.user.data[0];
+            const params = {
+              TableName: "usersTable",
+              Key: { userTwitchId:  user["id"] }
+            };
+
+            dynamodb.get(params, function(error, data) {
+                if (error) {
+                    console.error("Unable to read item. Error JSON:", JSON.stringify(error, null, 2));
+                    callback(null, true, {"access_token": results.access_token, "user": user});  // Create a new user
+                } else {
+                    // console.log("GetItem succeeded:", JSON.stringify(data, null, 2));
+                    if (Object.keys(data).length != 0) callback(null, false, {"access_token": results.access_token, "user": data.Item});
+                    else callback(null, true, {"access_token": results.access_token, "user": user});  // Create a new user
+                }
+            });
+          }
+      },
+      (create_user, results, callback) => {
+          let user = results.user
           user["access_token"] = results.access_token
-          user["userTwitchId"] = user["id"]
-          delete user["id"]
 
-          const params = { TableName: "usersTable", Item: user };
+          if (!create_user){ // Use found in the database, do an update of access_token
+            const params = {
+                TableName: "usersTable",
+                Key: { userTwitchId:  user["userTwitchId"] },
+                UpdateExpression: "set access_token = :token",
+                ExpressionAttributeValues:{ ":token": results.access_token },
+                ReturnValues: "NONE"
+            };
+            dynamodb.update(params, function(error, data) {
+              if (error) {
+                console.error("Unable to update item. Error JSON:", JSON.stringify(error, null, 2));
+                callback(null, false, error);
+              } else callback(null, true, user);  // Success
+            });
+          }
+          else {
+            user["userTwitchId"] = user["id"]
+            user["gameTags"] = []
+            delete user["id"]
 
-          docClient.put(params, function(error, data) {
-            if (error) {
-              console.error("Unable to add user", user.login, ". Error JSON:", JSON.stringify(error, null, 2));
-              callback(null, false, error);
-            } else {
-              let payload = { username: user.login, userId: user.userId, userTwitchId: user.userTwitchId }
-              let token = jwt.sign(payload, app.get('secretforjwt'), { expiresIn: "99 days" });
-              callback(null, true, token);  // Success
-            }
-          });
-        }
+            const params = { TableName: "usersTable", Item: user };
+
+            dynamodb.put(params, function(error, data) {
+              if (error) {
+                console.error("Unable to add user", user.login, ". Error JSON:", JSON.stringify(error, null, 2));
+                callback(null, false, error);
+              } else callback(null, true, user);  // Success
+            });
+          }
       }
-
     ], (err, status, data) => {
-        if(status == true) res.status(201).json({ "message": "Signed in", "error": null, "access_token": data, "success": true })
+        if(status == true){
+          let payload = { username: data.login, userTwitchId: data.userTwitchId }
+          let token = jwt.sign(payload, app.get('secretforjwt'), { expiresIn: "99 days" });
+          res.status(201).json({ "message": "Signed in", "error": null, "access_token": token, "success": true })
+        }
         else res.status(400).json({ "message": "Something went wrong", "error": data, "access_token": null, "success": false })
     });
 
@@ -137,5 +205,5 @@ router.get('/singup', (req, res, next) => {
 
 var port = config.port;
 var server = app.listen(port, function () {
-    console.log('Express server listening on port ' + port);
+    console.log('🌐 Express server listening on port: ' + port);
 });
