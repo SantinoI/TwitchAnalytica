@@ -1,0 +1,15 @@
+{
+  "TableName": "history",
+  "KeySchema": [
+    { "AttributeName": "users_id", "KeyType": "HASH" },
+    { "AttributeName": "timestamp", "KeyType": "RANGE" }
+  ],
+  "AttributeDefinitions": [
+    { "AttributeName": "users_id", "AttributeType": "S" },
+    { "AttributeName": "timestamp", "AttributeType": "N" }
+  ],
+  "ProvisionedThroughput": {
+    "ReadCapacityUnits": 10,
+    "WriteCapacityUnits": 100
+  }
+}

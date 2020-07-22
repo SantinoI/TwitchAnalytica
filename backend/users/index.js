@@ -1,6 +1,5 @@
 const config = require('./config/main');
 
-// const { v4: uuidv4 } = require('uuid');
 const superagent = require('superagent');
 const async = require('async');
 const express = require('express');
@@ -45,10 +44,10 @@ app.set('secretforjwt', config.secret);
 // https://docs.aws.amazon.com/it_it/amazondynamodb/latest/developerguide/GettingStarted.NodeJs.html
 
 
-router.get('/profile', verifytoken, (req, res, next) => {
+router.get('/user', verifytoken, (req, res, next) => {
   const params = {
-    TableName: "usersTable",
-    Key: { userTwitchId:  req.decoded.userTwitchId }
+    TableName: "users",
+    Key: { id:  req.decoded.id }
   };
 
   dynamodb.get(params, function(error, data) {
@@ -62,10 +61,10 @@ router.get('/profile', verifytoken, (req, res, next) => {
   });
 })
 
-router.post('/profile', verifytoken, (req, res, next) => {
+router.post('/user', verifytoken, (req, res, next) => {
   const params = {
-      TableName: "usersTable",
-      Key: { userTwitchId: req.decoded.userTwitchId },
+      TableName: "users",
+      Key: { id: req.decoded.id },
       UpdateExpression: "set gameTags = :gameTags",
       ExpressionAttributeValues:{ ":gameTags": req.body.gameTags },
       ReturnValues: "ALL_NEW"
@@ -77,15 +76,6 @@ router.post('/profile', verifytoken, (req, res, next) => {
     } else res.status(201).json({ "error": null, "data": data, "success": true })
   });
 })
-
-router.get("/welcome", (req, res, next) => {
-  res.status(201).json({ "message": "Hello 4.4", "error": null, "success": true })
-})
-
-router.get("/", (req, res, next) => {
-  res.status(201).json({ "message": "Hello 4.4", "error": null, "success": true })
-})
-
 
 router.get('/singup', (req, res, next) => {
 
@@ -153,8 +143,8 @@ router.get('/singup', (req, res, next) => {
 
             let user = results.user.data[0];
             const params = {
-              TableName: "usersTable",
-              Key: { userTwitchId:  user["id"] }
+              TableName: "users",
+              Key: { id:  user["id"] }
             };
 
             dynamodb.get(params, function(error, data) {
@@ -175,8 +165,8 @@ router.get('/singup', (req, res, next) => {
 
           if (!create_user){ // Use found in the database, do an update of access_token
             const params = {
-                TableName: "usersTable",
-                Key: { userTwitchId:  user["userTwitchId"] },
+                TableName: "users",
+                Key: { id:  user["id"] },
                 UpdateExpression: "set access_token = :token",
                 ExpressionAttributeValues:{ ":token": results.access_token },
                 ReturnValues: "NONE"
@@ -189,10 +179,7 @@ router.get('/singup', (req, res, next) => {
             });
           }
           else {
-            user["userTwitchId"] = user["id"]
-            delete user["id"]
-
-            const params = { TableName: "usersTable", Item: user };
+            const params = { TableName: "users", Item: user };
 
             dynamodb.put(params, function(error, data) {
               if (error) {
@@ -204,7 +191,7 @@ router.get('/singup', (req, res, next) => {
       }
     ], (err, status, data) => {
         if(status == true){
-          let payload = { username: data.login, userTwitchId: data.userTwitchId }
+          let payload = { username: data.login, id: data.id }
           let access_token = jwt.sign(payload, app.get('secretforjwt'), { expiresIn: "99 days" });
           // res.status(201).json({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
           console.log({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
@@ -216,7 +203,11 @@ router.get('/singup', (req, res, next) => {
 
 });
 
+router.get("/", (req, res, next) => {
+  res.status(201).json({ "message": "Service 'users' running " + new Date(), "error": null, "success": true })
+})
+
 var port = config.port;
 var server = app.listen(port, function () {
-    console.log('🌐 Express server listening on port: ' + port);
+    console.log("🌐 Express 'users' server listening on port: " + port);
 });
