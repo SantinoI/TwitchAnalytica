@@ -34,6 +34,8 @@ app.use(function (req, res, next) {
 app.use('/api/v1', router);
 app.set('secretforjwt', config.secret);
 
+// https://id.twitch.tv/oauth2/authorize?client_id=pb61bwxg5i85ob9vhxmwkm551sdr9u&redirect_uri=http://twitc-ecsal-it3rj1p6kk2r-780238624.us-east-1.elb.amazonaws.com/api/v1/singup&response_type=code&scope=user:edit:broadcast user:read:email
+
 // https://id.twitch.tv/oauth2/authorize?client_id=pb61bwxg5i85ob9vhxmwkm551sdr9u&redirect_uri=http://localhost:3000/api/v1/singup&response_type=code&scope=user:edit:broadcast user:read:email
 
 // https://www.npmjs.com/package/async-waterfall
@@ -76,6 +78,15 @@ router.post('/profile', verifytoken, (req, res, next) => {
   });
 })
 
+router.get("/welcome", (req, res, next) => {
+  res.status(201).json({ "message": "Hello 4.4", "error": null, "success": true })
+})
+
+router.get("/", (req, res, next) => {
+  res.status(201).json({ "message": "Hello 4.4", "error": null, "success": true })
+})
+
+
 router.get('/singup', (req, res, next) => {
 
     const params = {
@@ -83,7 +94,7 @@ router.get('/singup', (req, res, next) => {
         client_secret: config.twitch.client_secret,
         code: req.query.code,
         grant_type: "authorization_code",
-        redirect_uri: "http://localhost:3000/api/v1/singup"
+        redirect_uri: config.twitch.redirect_uri
     }
 
     async.waterfall([
@@ -194,8 +205,11 @@ router.get('/singup', (req, res, next) => {
     ], (err, status, data) => {
         if(status == true){
           let payload = { username: data.login, userTwitchId: data.userTwitchId }
-          let token = jwt.sign(payload, app.get('secretforjwt'), { expiresIn: "99 days" });
-          res.status(201).json({ "message": "Signed in", "error": null, "access_token": token, "success": true })
+          let access_token = jwt.sign(payload, app.get('secretforjwt'), { expiresIn: "99 days" });
+          // res.status(201).json({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
+          console.log({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
+          // res.cookie('access_token', access_token);
+          res.redirect(302, `${config.profile_redirect}?access_token=${access_token}`);
         }
         else res.status(400).json({ "message": "Something went wrong", "error": data, "access_token": null, "success": false })
     });
