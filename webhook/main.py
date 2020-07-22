@@ -23,7 +23,7 @@ def handle_error(e):
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    response = {"error": False, "message": "webhooks service up at: {}".format(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))}
+    response = {"error": False, "message": "Webhook service up at: {}".format(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))}
     return Response(json.dumps(response), status=200, mimetype="application/json")
 
 
