@@ -22,7 +22,7 @@ app.use(bodyParser.json());
 const logger = require('morgan');
 app.use(logger('dev'));
 
-app.use(function (req, res, next) {
+app.use(function(req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
     res.header('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, OPTIONS');
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Credentials");
@@ -88,118 +88,118 @@ router.get('/singup', (req, res, next) => {
     }
 
     async.waterfall([
-      (callback) => {
+        (callback) => {
 
-        /*
-          POST https://id.twitch.tv/oauth2/token
-              ?client_id=<your client ID>
-              &client_secret=<your client secret>
-              &code=<authorization code received above>
-              &grant_type=authorization_code
-              &redirect_uri=<your registered redirect URI>
-        */
+            /*
+              POST https://id.twitch.tv/oauth2/token
+                  ?client_id=<your client ID>
+                  &client_secret=<your client secret>
+                  &code=<authorization code received above>
+                  &grant_type=authorization_code
+                  &redirect_uri=<your registered redirect URI>
+            */
 
-        superagent
-          .post('https://id.twitch.tv/oauth2/token')
-          .send(params)
-          .set('Accept', 'application/json')
-          .then((response) => {
-            const { access_token } = response.body;
-            if (!access_token) callback(null, true, { success: false, message: 'Error: Invalid code'});
-            else callback(null, true, { access_token: access_token });
-          }).catch((error) => {
-            console.error(error)
-            callback(null, false, error);
-        });
-      },
-      (success, results, callback) => {
+            superagent
+                .post('https://id.twitch.tv/oauth2/token')
+                .send(params)
+                .set('Accept', 'application/json')
+                .then((response) => {
+                    const { access_token } = response.body;
+                    if (!access_token) callback(null, true, { success: false, message: 'Error: Invalid code' });
+                    else callback(null, true, { access_token: access_token });
+                }).catch((error) => {
+                    console.error(error)
+                    callback(null, false, error);
+                });
+        },
+        (success, results, callback) => {
 
-        /*
-            curl  -H 'Client-ID: uo6dggojyb8d6soh92zknwmi5ej1q2' \
-            -H 'Authorization: Bearer cfabdegwdoklmawdzdo98xt2fo512y' \
-            -X GET 'https://api.twitch.tv/helix/users?id=44322889'
-        */
+            /*
+                curl  -H 'Client-ID: uo6dggojyb8d6soh92zknwmi5ej1q2' \
+                -H 'Authorization: Bearer cfabdegwdoklmawdzdo98xt2fo512y' \
+                -X GET 'https://api.twitch.tv/helix/users?id=44322889'
+            */
 
-        if (!success) callback(null, success, results);
-        else {
-          const access_token = results.access_token;
+            if (!success) callback(null, success, results);
+            else {
+                const access_token = results.access_token;
 
-          superagent
-            .get('https://api.twitch.tv/helix/users')
-            .set('Client-ID', config.twitch.client_id)
-            .set('Authorization', `Bearer ${access_token}`)
-            .then((responseUser) => {
-              const userBody = responseUser.body;
-              callback(null, true, { access_token: access_token, user: userBody });
-            }).catch((error) => {
-                console.error(error)
-                callback(null, false, error);
-            });
-        }
-      },
-      (success, results, callback) => {
-          if (!success) callback(null, success, results);
-          else {
+                superagent
+                    .get('https://api.twitch.tv/helix/users')
+                    .set('Client-ID', config.twitch.client_id)
+                    .set('Authorization', `Bearer ${access_token}`)
+                    .then((responseUser) => {
+                        const userBody = responseUser.body;
+                        callback(null, true, { access_token: access_token, user: userBody });
+                    }).catch((error) => {
+                        console.error(error)
+                        callback(null, false, error);
+                    });
+            }
+        },
+        (success, results, callback) => {
+            if (!success) callback(null, success, results);
+            else {
 
-            let user = results.user.data[0];
-            const params = {
-              TableName: "users",
-              Key: { id:  user["id"] }
-            };
-
-            dynamodb.get(params, function(error, data) {
-                if (error) {
-                    console.error("Unable to read item. Error JSON:", JSON.stringify(error, null, 2));
-                    callback(null, true, {"access_token": results.access_token, "user": user});  // Create a new user
-                } else {
-                    // console.log("GetItem succeeded:", JSON.stringify(data, null, 2));
-                    if (Object.keys(data).length != 0) callback(null, false, {"access_token": results.access_token, "user": data.Item});
-                    else callback(null, true, {"access_token": results.access_token, "user": user});  // Create a new user
-                }
-            });
-          }
-      },
-      (create_user, results, callback) => {
-          let user = results.user
-          user["access_token"] = results.access_token
-
-          if (!create_user){ // Use found in the database, do an update of access_token
-            const params = {
+                let user = results.user.data[0];
+                const params = {
                 TableName: "users",
-                Key: { id:  user["id"] },
-                UpdateExpression: "set access_token = :token",
-                ExpressionAttributeValues:{ ":token": results.access_token },
-                ReturnValues: "NONE"
-            };
-            dynamodb.update(params, function(error, data) {
-              if (error) {
-                console.error("Unable to update item. Error JSON:", JSON.stringify(error, null, 2));
-                callback(null, false, error);
-              } else callback(null, true, user);  // Success
-            });
-          }
-          else {
-            const params = { TableName: "users", Item: user };
+                Key: { id:  user["id"] }
+                };
 
-            dynamodb.put(params, function(error, data) {
-              if (error) {
-                console.error("Unable to add user", user.login, ". Error JSON:", JSON.stringify(error, null, 2));
-                callback(null, false, error);
-              } else callback(null, true, user);  // Success
-            });
-          }
-      }
-    ], (err, status, data) => {
-        if(status == true){
-          let payload = { username: data.login, id: data.id }
-          let access_token = jwt.sign(payload, app.get('secretforjwt'), { expiresIn: "99 days" });
-          // res.status(201).json({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
-          console.log({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
-          // res.cookie('access_token', access_token);
-          res.redirect(302, `${config.profile_redirect}?access_token=${access_token}`);
+                dynamodb.get(params, function(error, data) {
+                    if (error) {
+                        console.error("Unable to read item. Error JSON:", JSON.stringify(error, null, 2));
+                        callback(null, true, {"access_token": results.access_token, "user": user});  // Create a new user
+                    } else {
+                        // console.log("GetItem succeeded:", JSON.stringify(data, null, 2));
+                        if (Object.keys(data).length != 0) callback(null, false, {"access_token": results.access_token, "user": data.Item});
+                        else callback(null, true, {"access_token": results.access_token, "user": user});  // Create a new user
+                    }
+                });
+            }
+        },
+        (create_user, results, callback) => {
+            let user = results.user
+            user["access_token"] = results.access_token
+
+            if (!create_user){ // Use found in the database, do an update of access_token
+                const params = {
+                    TableName: "users",
+                    Key: { id:  user["id"] },
+                    UpdateExpression: "set access_token = :token",
+                    ExpressionAttributeValues:{ ":token": results.access_token },
+                    ReturnValues: "NONE"
+                };
+                dynamodb.update(params, function(error, data) {
+                if (error) {
+                    console.error("Unable to update item. Error JSON:", JSON.stringify(error, null, 2));
+                    callback(null, false, error);
+                } else callback(null, true, user);  // Success
+                });
+            }
+            else {
+                const params = { TableName: "users", Item: user };
+
+                dynamodb.put(params, function(error, data) {
+                if (error) {
+                    console.error("Unable to add user", user.login, ". Error JSON:", JSON.stringify(error, null, 2));
+                    callback(null, false, error);
+                } else callback(null, true, user);  // Success
+                });
+            }
         }
-        else res.status(400).json({ "message": "Something went wrong", "error": data, "access_token": null, "success": false })
-    });
+        ], (err, status, data) => {
+            if(status == true){
+            let payload = { username: data.login, id: data.id }
+            let access_token = jwt.sign(payload, app.get('secretforjwt'), { expiresIn: "99 days" });
+            // res.status(201).json({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
+            console.log({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
+            // res.cookie('access_token', access_token);
+            res.redirect(302, `${config.profile_redirect}?access_token=${access_token}`);
+            }
+            else res.status(400).json({ "message": "Something went wrong", "error": data, "access_token": null, "success": false })
+        });
 
 });
 
