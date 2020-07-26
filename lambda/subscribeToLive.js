@@ -12,20 +12,20 @@ exports.handler = async (event, context, callback) => {
         console.log('Stream record: ', JSON.stringify(record, null, 2));
         if(record.eventName == "INSERT"){
 
-          const data = await secretsManager.getSecretValue({SecretId: "twitch.client_id",}).promise();
+          const data = await secretsManager.getSecretValue({SecretId: "twitch.client_id"}).promise();
           const client_id = JSON.parse(data.SecretString).twitch.client_id;
 
           const user_id = record.dynamodb.NewImage.S.id;  // Get this from record ...
           const access_token = record.dynamodb.NewImage.S.access_token;  // Get this from record ...
 
           const data = JSON.stringify({
-              "hub.callback": "http://460ec3f71132.ngrok.io/webhook",  // Should the url of our webhook
-              "hub.mode": "subscribe",
-              "hub.topic": `https://api.twitch.tv/helix/streams?user_id=${user_id}`,
-              "hub.lease_seconds": 432000
-            })
+            "hub.callback": "http://460ec3f71132.ngrok.io/webhook",  // Should the url of our webhook
+            "hub.mode": "subscribe",
+            "hub.topic": `https://api.twitch.tv/helix/streams?user_id=${user_id}`,
+            "hub.lease_seconds": 432000
+          })
 
-            const options = {
+          const options = {
               hostname: 'api.twitch.tv',
               port: 443,
               path: '/helix/webhooks/hub',
