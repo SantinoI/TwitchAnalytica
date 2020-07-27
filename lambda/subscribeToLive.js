@@ -12,8 +12,8 @@ exports.handler = async (event, context, callback) => {
         console.log('Stream record: ', JSON.stringify(record, null, 2));
         if(record.eventName == "INSERT"){
 
-          const data = await secretsManager.getSecretValue({SecretId: "twitch.client_id"}).promise();
-          const client_id = JSON.parse(data.SecretString).twitch.client_id;
+          const secretData = await secretsManager.getSecretValue({SecretId: "twitch.client_id"}).promise();
+          const client_id = JSON.parse(secretData.SecretString).twitch.client_id;
 
           const user_id = record.dynamodb.NewImage.S.id;  // Get this from record ...
           const access_token = record.dynamodb.NewImage.S.access_token;  // Get this from record ...

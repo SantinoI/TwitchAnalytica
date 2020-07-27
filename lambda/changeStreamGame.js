@@ -7,9 +7,37 @@ const secretsManager = new AWS.SecretsManager({region: "us-east-1"});
 // https://gist.github.com/rxgx/7e1b24de5936ff1b2b815a3d9cc3897a
 // https://dev.twitch.tv/docs/api/reference#modify-channel-information
 
+function doRequestPlease(options, data) {
+    return new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        res.setEncoding('utf8');
+        let responseBody = '';
+
+        console.log(`statusCode: ${res.statusCode}`)
+
+        res.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+
+        res.on('end', () => {
+            console.log(responseBody)
+            resolve(JSON.parse(responseBody));
+        });
+      });
+
+      req.on('error', (err) => {
+        console.error(error)
+        reject(new Error(error));
+      });
+
+      req.write(data)
+      req.end();
+    });
+  }
+
 exports.handler = async (event, context, callback) => {
-    const data = await secretsManager.getSecretValue({SecretId: "twitch.client_id"}).promise();
-    const client_id = JSON.parse(data.SecretString).twitch.client_id;
+    const secretData = await secretsManager.getSecretValue({SecretId: "twitch.client_id"}).promise();
+    const client_id = JSON.parse(secretData.SecretString).twitch.client_id;
 
     const user_id = event.id;
     const access_token = event.access_token;
@@ -32,20 +60,9 @@ exports.handler = async (event, context, callback) => {
         }
     }
 
-    const req = https.request(options, (res) => {
-        console.log(`statusCode: ${res.statusCode}`)
-        callback(null, "Got response: " + res.statusCode);
-        // res.setEncoding('utf8');
-        // res.on('data', (d) => { process.stdout.write(d) })
+    await doRequestPlease(options, data).then((response) => {
+        console.log(response)
     })
-
-    req.on('error', (error) => {
-        console.error(error)
-        callback(new Error(error));
-    })
-
-    req.write(data)
-    req.end()
 
     // callback(null, `Successfully processed ${event.Records.length} records.`);
 };
