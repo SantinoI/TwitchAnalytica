@@ -1,11 +1,11 @@
 {
   "TableName": "history",
   "KeySchema": [
-    { "AttributeName": "users_id", "KeyType": "HASH" },
+    { "AttributeName": "user_id", "KeyType": "HASH" },
     { "AttributeName": "timestamp", "KeyType": "RANGE" }
   ],
   "AttributeDefinitions": [
-    { "AttributeName": "users_id", "AttributeType": "S" },
+    { "AttributeName": "user_id", "AttributeType": "S" },
     { "AttributeName": "timestamp", "AttributeType": "N" }
   ],
   "ProvisionedThroughput": {

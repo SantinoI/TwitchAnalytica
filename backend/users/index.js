@@ -65,8 +65,8 @@ router.post('/user', verifytoken, (req, res, next) => {
   const params = {
       TableName: "users",
       Key: { id: req.decoded.id },
-      UpdateExpression: "set gameTags = :gameTags",
-      ExpressionAttributeValues:{ ":gameTags": req.body.gameTags },
+      UpdateExpression: "set gameTitles = :gameTitles",
+      ExpressionAttributeValues:{ ":gameTitles": req.body.gameTitles },
       ReturnValues: "ALL_NEW"
   };
   dynamodb.update(params, function(error, data) {
@@ -203,9 +203,19 @@ router.get('/singup', (req, res, next) => {
 
 });
 
+/*
 router.get("/", (req, res, next) => {
-  res.status(201).json({ "message": "Service 'users' running " + new Date(), "error": null, "success": true })
+  res.status(201).json({ "message": "Service 2.1 'users' running " + new Date(), "error": null, "success": true })
 })
+
+router.get("/env", async (req, res, next) => {
+    res.status(201).json(`Here the Enviroment: ${JSON.stringify(process.env, null, 2)}`)
+})
+
+router.get("/client_id", async (req, res, next) => {
+    res.status(201).json(`The client_id is: ${JSON.parse(process.env.env_twitch_clientid).twitch.client_id}`)
+})
+*/
 
 var port = config.port;
 var server = app.listen(port, function () {
