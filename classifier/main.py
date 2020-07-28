@@ -21,8 +21,8 @@ from PIL import Image
 
 from boto3.dynamodb.conditions import Key
 
-dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000")
-# dynamodb = boto3.resource('dynamodb', region_name="us-east-1")
+# dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000")
+dynamodb = boto3.resource('dynamodb', region_name="us-east-1")
 s3 = boto3.client('s3', region_name="us-east-1")
 lambda_client = boto3.client('lambda')
 
@@ -87,7 +87,7 @@ def evaluate(filename):
 
 if __name__ == "__main__":
     while True:
-        twitch_id = "198215664"  # "198215664"  # os.getenv("user_id")
+        twitch_id = os.getenv("user_id")
         table = dynamodb.Table('users')
         response = table.query(KeyConditionExpression=Key('id').eq(twitch_id))
         # response = table.get_item(Key={'id': twitch_id})
@@ -124,6 +124,8 @@ if __name__ == "__main__":
                         classified = evaluate(filename)
                         print("Immagine scaricata: {} => {}".format(classified, image_url))
 
+                        os.remove(filename)
+
                         table = dynamodb.Table('history')
                         response = table.put_item(
                             Item={
@@ -144,6 +146,20 @@ if __name__ == "__main__":
                         print(payload)
                         response = lambda_client.invoke(
                             FunctionName='changeStreamGame',
+                            LogType='Tail',
+                            InvocationType='Event',
+                            Payload=bytes(json.dumps(payload).encode("utf-8"))
+                        )
+                        print(response)
+
+                        payload = {
+                            "user_id": twitch_id,
+                            "access_token": item["access_token"],
+                            "title": item["gameTitles"][classified["id"]]
+                        }
+                        print(payload)
+                        response = lambda_client.invoke(
+                            FunctionName='changeStreamTitle',
                             LogType='Tail',
                             InvocationType='Event',
                             Payload=bytes(json.dumps(payload).encode("utf-8"))
