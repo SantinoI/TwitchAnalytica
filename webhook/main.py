@@ -4,34 +4,38 @@
 import json
 import datetime
 import boto3
+import loggin
+import sys
 
 from flask import Flask, request, Response
 from flask_cors import CORS
+
+loggin.basicConfig(level=loggin.DEBUG)
 
 app = Flask(__name__)
 CORS(app)
 
 app.url_map.strict_slashes = False
-app.config["APPLICATION_ROOT"] = "/api/v1"
 
-ecs = boto3.client('ecs')
+ecs = boto3.client('ecs', region_name="us-east-1")
 
 
 @app.errorhandler(Exception)
 def handle_error(e):
-    response = {"error": True, "message": "Sorry we can accept your request"}
+    response = {"error": True, "message": "Sorry we can accept your request", "exception": str(e)}
     return Response(json.dumps(response), status=500, mimetype="application/json")
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/api/v1/webhook/", methods=["GET", "POST"])
 def home():
     response = {"error": False, "message": "Webhook service up at: {}".format(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))}
     return Response(json.dumps(response), status=200, mimetype="application/json")
 
 
-@app.route("/webhook/<string:user_id>", methods=["POST"])
+@app.route("/api/v1/webhook/<string:user_id>", methods=["POST"])
 def webhook_post(user_id):
     data = request.json["data"]
+    app.logger.info("POST request for: {}, with data: {}".format(user_id, data))
     cluster = "TwitchAnalytica-Stack-ECSCluster-qw1JXJOQr1y6"
     # Get the list of current task startedBy this service and dedicated to this username.
     response = ecs.list_tasks(
@@ -62,7 +66,7 @@ def webhook_post(user_id):
             overrides={
                 'containerOverrides': [
                     {
-                        'name': "main-worker",
+                        'name': "classifier",
                         'environment': [
                             {
                                 'name': 'user_id',
@@ -74,14 +78,15 @@ def webhook_post(user_id):
             },
             count=1,
             startedBy="Webhook for: {}".format(user_id),
-            taskDefinition='main-worker'
+            taskDefinition='classifier'
         )
 
     return Response("", status=200, mimetype="text/plain")
 
 
-@app.route("/webhook/<string:id>", methods=["GET"])
+@app.route("/api/v1/webhook/<string:user_id>", methods=["GET"])
 def webhook_get(user_id):
+    app.logger.info("GET request for: {}".format(user_id))
     return Response(request.args.get("hub.challenge"), status=200, mimetype="text/plain")
 
 
