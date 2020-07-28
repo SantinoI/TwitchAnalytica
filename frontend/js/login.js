@@ -24,76 +24,74 @@ function saveSettings() {
 }
 
 $.ajax({
-    url: 'http://localhost:3000/api/v1/profile',
+    url: 'http://twitc-ecsal-it3rj1p6kk2r-780238624.us-east-1.elb.amazonaws.com/api/v1/users/user',
+    //url: 'http://13d4cb8f2530.ngrok.io/api/v1/users/user',
     headers: {
         'Authorization': localStorage.token,
-        'Content-Type': 'application/json'
     },
     method: 'GET',
-    dataType: 'json',
+    success: function(data) {
+        console.log(data)
+        fillAll(data)
+    }
+});
+/*
+$.ajax({
+    url: 'http://twitc-ecsal-it3rj1p6kk2r-780238624.us-east-1.elb.amazonaws.com/api/v1/history/history',
+    headers: {
+        'Authorization': localStorage.token,
+    },
+    method: 'GET',
     success: function(data) {
         console.log(data)
         fillAll(data)
     }
 });
 
+*/
+
 function fillAll(data) {
 
     let username = data["data"]["login"]
     let img_link = data["data"]["profile_image_url"]
+    var title_list = data["data"]["gameTitles"]
 
     let welcome = "Welcome " + "<b> " + username + "</b>";
 
-    $("#saveTag").click(function() {
-        game = $('#category').find(":selected").text();
-        newTag = $('#message').val();
-        tmp = data['data']['gameTags']
-        arrayTag = data['data']['gameTags']
-        for (key in tmp) {
-            if (tmp[key]["game"] == game) {
-                arrayTag[key] = {
-                    'game': game,
-                    'tags': newTag
-                }
-                return;
-            }
-            arrayTag.push({ 'game': game, 'tags': newTag })
-        }
-
-
-        console.log(arrayTag)
-        newData = {
-            "gameTags": arrayTag
-        }
-        console.log("I nuovi tag sono: " + newTag)
-
-        var saveData = $.ajax({
+    $("#saveTitle").click(function() {
+        game = $('#category').find(":selected").val();
+        newTitle = $('#message').val();
+        if (!title_list) title_list = {}
+        title_list[game] = newTitle
+        console.log(title_list)
+        data['data']['gameTitles'] = title_list
+        $.ajax({
             type: "POST",
             headers: {
                 'Authorization': localStorage.token,
             },
-            url: 'http://localhost:3000/api/v1/profile',
-            data: newData,
+            url: 'http://twitc-ecsal-it3rj1p6kk2r-780238624.us-east-1.elb.amazonaws.com/api/v1/users/user',
+            //url: 'http://13d4cb8f2530.ngrok.io/api/v1/users/user',
+            data: JSON.stringify({ "gameTitles": title_list }),
             dataType: "json",
+            contentType: "application/json",
             success: function(resultData) {
                 alert("Save Complete");
                 location.reload();
             }
-        });
-        saveData.error(function() { alert("Something went wrong"); });
+        }).error(function() { alert("Something went wrong"); });
     });
 
 
     $('#category').change(function() {
         selectedGame = $('#category').find(":selected").text();
         $('#message').val('');
-        gameTags = data['data']['gameTags']
-        for (key in gameTags) {
-            console.log(gameTags[key]['game'])
-            if (gameTags[key]['game'] == selectedGame) {
-                tag = gameTags[key]['tags']
-                console.log(tag)
-                $('#message').val(tag);
+        gameTitle = data['data']['gameTitles']
+        for (key in gameTitle) {
+            console.log(gameTitle[key]['game'])
+            if (gameTitle[key]['game'] == selectedGame) {
+                title = gameTitle[key]['title']
+                $('#message').val(title);
             }
         }
     });
