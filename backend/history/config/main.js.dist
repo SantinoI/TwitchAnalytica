@@ -5,9 +5,5 @@ module.exports = {
         'region': "",
         'endpoint': ""
     },
-    'twitch': {
-        'client_id': "",
-        'client_secret': ""
-    },
     'secret': ""
 };

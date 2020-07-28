@@ -3,6 +3,7 @@ const config = require('./config/main');
 const superagent = require('superagent');
 const async = require('async');
 const express = require('express');
+const cors = require('cors')
 
 const AWS = require("aws-sdk");
 AWS.config.update(config.aws);
@@ -20,17 +21,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
 const logger = require('morgan');
+
 app.use(logger('dev'));
-
-app.use(function(req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, OPTIONS');
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Credentials");
-    res.header("Access-Control-Allow-Credentials", "true");
-    next();
-});
-
-app.use('/api/v1', router);
+app.use(cors())
+app.use('/api/v1/users', router);
 app.set('secretforjwt', config.secret);
 
 // https://id.twitch.tv/oauth2/authorize?client_id=pb61bwxg5i85ob9vhxmwkm551sdr9u&redirect_uri=http://twitc-ecsal-it3rj1p6kk2r-780238624.us-east-1.elb.amazonaws.com/api/v1/singup&response_type=code&scope=user:edit:broadcast user:read:email
@@ -55,7 +49,10 @@ router.get('/user', verifytoken, (req, res, next) => {
           console.error("Unable to read item. Error JSON:", JSON.stringify(error, null, 2));
           res.status(400).json({ "error": error, "data": null, "success": false })
       } else {
-          if (Object.keys(data).length != 0) res.status(201).json({ "error": null, "data": data.Item, "success": true })
+          if (Object.keys(data).length != 0) {
+            delete data.Item.access_token;
+            res.status(200).json({ "error": null, "data": data.Item, "success": true })
+          }
           else res.status(400).json({ "error": data, "data": null, "success": false })
       }
   });
@@ -73,7 +70,10 @@ router.post('/user', verifytoken, (req, res, next) => {
     if (error) {
       console.error("Unable to update item. Error JSON:", JSON.stringify(error, null, 2));
       res.status(400).json({ "error": data, "data": null, "success": false })
-    } else res.status(201).json({ "error": null, "data": data, "success": true })
+    } else {
+        delete data.access_token;
+        res.status(200).json({ "error": null, "data": data, "success": true })
+    }
   });
 })
 
@@ -179,6 +179,7 @@ router.get('/singup', (req, res, next) => {
                 });
             }
             else {
+                user["gameTitles"] = {}
                 const params = { TableName: "users", Item: user };
 
                 dynamodb.put(params, function(error, data) {
@@ -193,7 +194,7 @@ router.get('/singup', (req, res, next) => {
             if(status == true){
             let payload = { username: data.login, id: data.id }
             let access_token = jwt.sign(payload, app.get('secretforjwt'), { expiresIn: "99 days" });
-            // res.status(201).json({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
+            // res.status(200).json({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
             console.log({ "message": "Signed in", "error": null, "access_token": access_token, "success": true })
             // res.cookie('access_token', access_token);
             res.redirect(302, `${config.profile_redirect}?access_token=${access_token}`);
@@ -203,17 +204,17 @@ router.get('/singup', (req, res, next) => {
 
 });
 
-/*
 router.get("/", (req, res, next) => {
-  res.status(201).json({ "message": "Service 2.1 'users' running " + new Date(), "error": null, "success": true })
+  res.status(200).json({ "message": "Service 'users' running " + new Date(), "error": null, "success": true })
 })
 
+/* // Just a test with secrets ...
 router.get("/env", async (req, res, next) => {
-    res.status(201).json(`Here the Enviroment: ${JSON.stringify(process.env, null, 2)}`)
+    res.status(200).json(`Here the Enviroment: ${JSON.stringify(process.env, null, 2)}`)
 })
 
 router.get("/client_id", async (req, res, next) => {
-    res.status(201).json(`The client_id is: ${JSON.parse(process.env.env_twitch_clientid).twitch.client_id}`)
+    res.status(200).json(`The client_id is: ${JSON.parse(process.env.env_twitch_clientid).twitch.client_id}`)
 })
 */
 
