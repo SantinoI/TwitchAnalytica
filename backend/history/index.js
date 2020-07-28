@@ -1,9 +1,7 @@
 const config = require('./config/main');
 
-// const { v4: uuidv4 } = require('uuid');
-const superagent = require('superagent');
-const async = require('async');
 const express = require('express');
+const cors = require('cors')
 
 const AWS = require("aws-sdk");
 AWS.config.update(config.aws);
@@ -21,21 +19,34 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
 const logger = require('morgan');
+
 app.use(logger('dev'));
-
-app.use(function (req, res, next) {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, OPTIONS');
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Allow-Credentials");
-    res.header("Access-Control-Allow-Credentials", "true");
-    next();
-});
-
-app.use('/api/v1', router);
+app.use(cors())
+app.use('/api/v1/history', router);
 app.set('secretforjwt', config.secret);
 
+router.get("/history", (req, res, next) => {
+  const params = {
+    TableName: "history",
+    KeyConditionExpression: 'user_id = :user_id',
+    ExpressionAttributeValues: {
+      ':user_id': req.decoded.id,
+    },
+  };
+
+  dynamodb.query(params, verifytoken, function(error, data) {
+      if (error) {
+          console.error("Unable to read item. Error JSON:", JSON.stringify(error, null, 2));
+          res.status(400).json({ "error": error, "data": null, "success": false })
+      } else {
+          if (Object.keys(data).length != 0) res.status(200).json({ "error": null, "data": data.Items, "success": true })
+          else res.status(400).json({ "error": data, "data": null, "success": false })
+      }
+  });
+})
+
 router.get("/", (req, res, next) => {
-  res.status(201).json({ "message": "Service 'history' running " + new Date(), "error": null, "success": true })
+  res.status(200).json({ "message": "Service 'history' running " + new Date(), "error": null, "success": true })
 })
 
 var port = config.port;
