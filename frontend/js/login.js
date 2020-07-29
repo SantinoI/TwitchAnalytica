@@ -35,7 +35,7 @@ $.ajax({
         fillAll(data)
     }
 });
-/*
+
 $.ajax({
     url: 'http://twitc-ecsal-it3rj1p6kk2r-780238624.us-east-1.elb.amazonaws.com/api/v1/history/history',
     headers: {
@@ -44,11 +44,9 @@ $.ajax({
     method: 'GET',
     success: function(data) {
         console.log(data)
-        fillAll(data)
+        // fillAll(data)
     }
 });
-
-*/
 
 function fillAll(data) {
 
