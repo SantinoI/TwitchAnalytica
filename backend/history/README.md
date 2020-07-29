@@ -8,7 +8,6 @@ module.exports = {
         'region': "us-east-1",  /* You aws region */
         'endpoint': "https://dynamodb.us-east-1.amazonaws.com"  /* Use localhost if you want to test before going live*/
     },
-    'profile_redirect': "http://127.0.0.1:5500/frontend/profile.html",  /* Se a url redirection after the login complete */
     'secret': "SUPER-SECRET-VALUE"  /* Make sure to have the same value also in users/config/main.js https://passwordsgenerator.net/ */
 };
 
