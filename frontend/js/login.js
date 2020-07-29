@@ -20,12 +20,13 @@ function GetURLParameter(sParam) {
 }
 
 function saveSettings() {
-    localStorage.token = GetURLParameter('access_token');
+    if (GetURLParameter('access_token')) {
+        localStorage.token = GetURLParameter('access_token');
+    }
 }
 
 $.ajax({
     url: 'http://twitc-ecsal-it3rj1p6kk2r-780238624.us-east-1.elb.amazonaws.com/api/v1/users/user',
-    //url: 'http://13d4cb8f2530.ngrok.io/api/v1/users/user',
     headers: {
         'Authorization': localStorage.token,
     },
@@ -43,10 +44,24 @@ $.ajax({
     },
     method: 'GET',
     success: function(data) {
-        console.log(data)
-        // fillAll(data)
+        fillTable(data)
     }
 });
+
+function fillTable(data) {
+    console.log(data);
+    data["data"].forEach(function(item) {
+        $("#contenuto").append("<tr> <td>" + formatDate(item["timestamp"]) + "</td>  <td>" +
+            "<a href=" + item["image_url"] + "> <img class='immagine' src=" + item["image_url"] + " /> </a>" +
+            "</td> <td>" + item["classified"]["name"] + "</td>  <td>" + item["title"] + "</td> </tr>");
+    })
+}
+
+
+function formatDate(unix_timestamp) {
+    var date = new Date(unix_timestamp * 1000);
+    return date.toString().split("GMT")[0];
+}
 
 function fillAll(data) {
 
@@ -69,7 +84,6 @@ function fillAll(data) {
                 'Authorization': localStorage.token,
             },
             url: 'http://twitc-ecsal-it3rj1p6kk2r-780238624.us-east-1.elb.amazonaws.com/api/v1/users/user',
-            //url: 'http://13d4cb8f2530.ngrok.io/api/v1/users/user',
             data: JSON.stringify({ "gameTitles": title_list }),
             dataType: "json",
             contentType: "application/json",
@@ -82,21 +96,18 @@ function fillAll(data) {
 
 
     $('#category').change(function() {
-        selectedGame = $('#category').find(":selected").text();
+        selectedGame = $('#category').find(":selected").val();
         $('#message').val('');
         gameTitle = data['data']['gameTitles']
-        for (key in gameTitle) {
-            console.log(gameTitle[key]['game'])
-            if (gameTitle[key]['game'] == selectedGame) {
-                title = gameTitle[key]['title']
-                $('#message').val(title);
-            }
-        }
+        document.getElementById("message").value = gameTitle[selectedGame]
     });
 
+    $("#resetta").click(function() {
+        selectedGame = $('#category').find(":selected").val();
+        gameTitle = data['data']['gameTitles']
+        document.getElementById("message").value = gameTitle[selectedGame]
+    });
 
-
-    $("#resetta").click(function() {});
 
     $("#titolo").html(welcome);
     $("#icona").attr("src", img_link);
