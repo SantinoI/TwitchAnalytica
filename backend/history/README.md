@@ -43,6 +43,7 @@ module.exports = {
      - In the Memory Limits field, verify Hard limit is selected and enter 256 as the value.
      - Under Port mappings, Host port = 0 and Container port = 3000. 
      - Scroll to ENVIRONMENT, CPU units = 256.
+     - Scroll to STORAGE AND LOGGING, check **Auto-configure CloudWatch Logs**
 - Select Add., You will return to the Configure task and container definitions page.
 - Scroll to the bottom of the page and select Create.
   
@@ -50,6 +51,7 @@ module.exports = {
 ```sh
 aws elbv2 create-target-group \
    --name history \
+   --region <YOUR-REGION>\
    --port 80 \
    --protocol HTTP \
    --target-type Instance \

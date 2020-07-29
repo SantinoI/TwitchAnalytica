@@ -103,3 +103,4 @@ For examples:
 - Labmbda - Invoke function
 - Secretmanager: GetSecretValue and Decrypt for kms
 - S3 - PutObject
+- CloudFormation - Write logs
