@@ -25,7 +25,7 @@ app.use(cors())
 app.use('/api/v1/history', router);
 app.set('secretforjwt', config.secret);
 
-router.get("/history", (req, res, next) => {
+router.get("/history", verifytoken, (req, res, next) => {
   const params = {
     TableName: "history",
     KeyConditionExpression: 'user_id = :user_id',
@@ -34,7 +34,7 @@ router.get("/history", (req, res, next) => {
     },
   };
 
-  dynamodb.query(params, verifytoken, function(error, data) {
+  dynamodb.query(params, function(error, data) {
       if (error) {
           console.error("Unable to read item. Error JSON:", JSON.stringify(error, null, 2));
           res.status(400).json({ "error": error, "data": null, "success": false })
