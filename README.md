@@ -65,7 +65,7 @@ There should only be one listener listed in this tab. Take the following steps t
 - Select **Save**.
 - Select the back arrow at the top left corner of the page to return to the load balancer console.
 
-## Create the lambda function, follow the [lambda/README.md] (lambda/README.md)
+## Create the lambda function, follow the [lambda/README.md](lambda/README.md)
 
 ## AWS Secrets Manager
 We have also create a secret for store the Twitch client_id, anyway in the current deploy we get this value from config/main.js for backend/users and backend/history. A good idea is to remove the following config file and set the value as enviroment variable of the container. So, the task definition for users and history should have the following line in the Task Definition dedicated to the container:
