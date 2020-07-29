@@ -5,8 +5,6 @@ You can also skip the following steps:
 - Step 1: Create a DynamoDB
 - Step 3: Create an Amazon SNS Topic
 
-**Before zipping the .py file make sure to have edit the cluster variable**
-
 `zip subscribeToLive.zip subscribeToLive.py`
 ```sh
 aws lambda create-function --function-name subscribeToLive \
