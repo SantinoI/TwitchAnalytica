@@ -1,5 +1,7 @@
 # TwitchAnalytica
 
+![structure](/structure.jpg)
+
 ## Cloud formation
 ```sh
 aws cloudformation deploy \
