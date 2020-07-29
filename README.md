@@ -21,10 +21,10 @@ Now we need to:
 5. Create a Serivce in ECS
 
 Follow every single README.md
-- [backend/history/README.md] (backend/history/README.md)
-- [backend/users/README.md] (backend/users/README.md)
-- [webhook/README.md] (webhook/README.md)
-- [classifier/README.md] (classifier/README.md) | __.4 and .5 not needed here__
+- [backend/history/README.md](backend/history/README.md)
+- [backend/users/README.md](backend/users/README.md)
+- [webhook/README.md](webhook/README.md)
+- [classifier/README.md](classifier/README.md) | __.4 and .5 not needed here__
 
 ## Write the rules for load balancer
 ```sh
