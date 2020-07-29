@@ -24,7 +24,7 @@ from boto3.dynamodb.conditions import Key
 # dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000")
 dynamodb = boto3.resource('dynamodb', region_name="us-east-1")
 s3 = boto3.client('s3', region_name="us-east-1")
-lambda_client = boto3.client('lambda')
+lambda_client = boto3.client('lambda', region_name="us-east-1")
 
 session = boto3.session.Session()
 secret_manager = session.client(service_name='secretsmanager', region_name="us-east-1")
@@ -87,83 +87,93 @@ def evaluate(filename):
 
 if __name__ == "__main__":
     while True:
-        twitch_id = os.getenv("user_id")
-        table = dynamodb.Table('users')
-        response = table.query(KeyConditionExpression=Key('id').eq(twitch_id))
-        # response = table.get_item(Key={'id': twitch_id})
-        # print(response['Items'])
-        for item in response['Items']:
-            """
-            curl --location --request GET '[https://api.twitch.tv/helix/streams](https://api.twitch.tv/helix/streams){: target="_blank"}' \
-            -H 'client-id: wbmytr93xzw8zbg0p1izqyzzc5mbiz' \
-            -H 'Authorization: Bearer 2gbdx6oar67tqtcmt49t3wpcgycthx'
-            """
+        try:
+            # print("Ciau")
+            twitch_id = str(os.getenv("user_id"))
+            print("Get twitch_id from env: {}".format(twitch_id))
+            table = dynamodb.Table('users')
+            response = table.query(KeyConditionExpression=Key('id').eq(twitch_id))
+            # response = table.get_item(Key={'id': twitch_id})
+            # print(response['Items'])
+            for item in response['Items']:
+                """
+                curl --location --request GET '[https://api.twitch.tv/helix/streams](https://api.twitch.tv/helix/streams){: target="_blank"}' \
+                -H 'client-id: wbmytr93xzw8zbg0p1izqyzzc5mbiz' \
+                -H 'Authorization: Bearer 2gbdx6oar67tqtcmt49t3wpcgycthx'
+                """
 
-            client_id = secret_manager.get_secret_value(SecretId="twitch.client_id")
-            client_id = json.loads(client_id["SecretString"])["twitch"]["client_id"]
-            # print("Client-ID preso da secret: {}".format(client_id))
+                client_id = secret_manager.get_secret_value(SecretId="twitch.client_id")
+                client_id = json.loads(client_id["SecretString"])["twitch"]["client_id"]
+                # print("Client-ID preso da secret: {}".format(client_id))
 
-            headers = {
-                "Client-ID": client_id,
-                "Authorization": "Bearer {}".format(item["access_token"])
-            }
-            print(headers)
-            response = requests.get("https://api.twitch.tv/helix/streams?user_id={}".format(twitch_id), headers=headers)
-            print(response.text)
-            if response.status_code == 200:
-                json_response = response.json()
-                for stream in json_response["data"]:
-                    thumbnail_url = stream["thumbnail_url"].replace("{width}", str(random.randint(500, 1080))).replace("{height}", str(random.randint(500, 1080)))
-                    status, filename = download_image(thumbnail_url, "./")
-                    if status is True:
-                        bucket_name = "stream-analytica-logs2"
-                        with open(filename, "rb") as f:
-                            response = s3.upload_fileobj(f, bucket_name, filename)
+                headers = {
+                    "Client-ID": client_id,
+                    "Authorization": "Bearer {}".format(item["access_token"])
+                }
+                print(headers)
+                response = requests.get("https://api.twitch.tv/helix/streams?user_id={}".format(twitch_id), headers=headers)
+                print(response.text)
+                if response.status_code == 200:
+                    json_response = response.json()
+                    for stream in json_response["data"]:
+                        thumbnail_url = stream["thumbnail_url"].replace("{width}", str(random.randint(500, 1080))).replace("{height}", str(random.randint(500, 1080)))
+                        status, filename = download_image(thumbnail_url, "./")
+                        if status is True:
+                            bucket_name = "stream-analytica-logs2"
+                            with open(filename, "rb") as f:
+                                response = s3.upload_fileobj(f, bucket_name, filename)
 
-                        image_url = "https://{}.s3.amazonaws.com/{}".format(bucket_name, filename)
-                        classified = evaluate(filename)
-                        print("Immagine scaricata: {} => {}".format(classified, image_url))
+                            image_url = "https://{}.s3.amazonaws.com/{}".format(bucket_name, filename)
+                            classified = evaluate(filename)
+                            print("Immagine scaricata: {} => {}".format(classified, image_url))
 
-                        os.remove(filename)
+                            try:
+                                time.sleep(0.1)
+                                os.remove(filename)
+                            except Exception:
+                                pass
 
-                        table = dynamodb.Table('history')
-                        response = table.put_item(
-                            Item={
+                            table = dynamodb.Table('history')
+                            response = table.put_item(
+                                Item={
+                                    "user_id": twitch_id,
+                                    "timestamp": int(time.time()),
+                                    "image_url": image_url,
+                                    "classified": classified,
+                                    "title": item["gameTitles"][classified["id"]],
+                                    "twitch_data": json_response["data"]
+                                }
+                            )
+                            print(response)
+
+                            payload = {
                                 "user_id": twitch_id,
-                                "timestamp": int(time.time()),
-                                "image_url": image_url,
-                                "classified": classified,
-                                "twitch_data": json_response["data"]
+                                "access_token": item["access_token"],
+                                "game_id": classified["id"]
                             }
-                        )
-                        print(response)
+                            print(payload)
+                            response = lambda_client.invoke(
+                                FunctionName='changeStreamGame',
+                                LogType='Tail',
+                                InvocationType='Event',
+                                Payload=bytes(json.dumps(payload).encode("utf-8"))
+                            )
+                            print(response)
 
-                        payload = {
-                            "user_id": twitch_id,
-                            "access_token": item["access_token"],
-                            "game_id": classified["id"]
-                        }
-                        print(payload)
-                        response = lambda_client.invoke(
-                            FunctionName='changeStreamGame',
-                            LogType='Tail',
-                            InvocationType='Event',
-                            Payload=bytes(json.dumps(payload).encode("utf-8"))
-                        )
-                        print(response)
-
-                        payload = {
-                            "user_id": twitch_id,
-                            "access_token": item["access_token"],
-                            "title": item["gameTitles"][classified["id"]]
-                        }
-                        print(payload)
-                        response = lambda_client.invoke(
-                            FunctionName='changeStreamTitle',
-                            LogType='Tail',
-                            InvocationType='Event',
-                            Payload=bytes(json.dumps(payload).encode("utf-8"))
-                        )
-                        print(response)
+                            payload = {
+                                "user_id": twitch_id,
+                                "access_token": item["access_token"],
+                                "title": item["gameTitles"][classified["id"]]
+                            }
+                            print(payload)
+                            response = lambda_client.invoke(
+                                FunctionName='changeStreamTitle',
+                                LogType='Tail',
+                                InvocationType='Event',
+                                Payload=bytes(json.dumps(payload).encode("utf-8"))
+                            )
+                            print(response)
+        except Exception as e:
+            print("Exception raised: {}".format(e))
 
         time.sleep(60 * 5)
