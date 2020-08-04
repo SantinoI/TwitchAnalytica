@@ -39,7 +39,7 @@ module.exports = {
   - In the Add container window:
      - Parameters that are not defined can be either left blank or with the default settings.
      - In the Container name field, enter history.
-     - In the Image field, enter <YOUR-AWS_ID>.dkr.ecr.<YOU-REGION>.amazonaws.com/history:latest
+     - In the Image field, enter <YOUR-AWS_ID>.dkr.ecr.[YOU-REGION].amazonaws.com/history:latest
      - In the Memory Limits field, verify Hard limit is selected and enter 256 as the value.
      - Under Port mappings, Host port = 0 and Container port = 3000. 
      - Scroll to ENVIRONMENT, CPU units = 256.
