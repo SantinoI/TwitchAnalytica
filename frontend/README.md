@@ -4,5 +4,5 @@
 `aws s3 website s3://<YOU-BUCKET-NAME> --index-document index.html`
 #### 3. Make the bucket public with the bucket-policy.json file (edit the file first)
 `aws s3api put-bucket-policy --bucket <YOU-BUCKET-NAME> --policy file://./bucket-policy.json`
-#### 2. Copy recursive the content of the Frontend folder inside the bucket
+#### 2. Copy recursive the content of the Frontend folder inside the bucket (edit the url first)
 `aws s3 cp --recursive ./TwitchAnalytica/frontend/ s3://<YOU-BUCKET-NAME>`
