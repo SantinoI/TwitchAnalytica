@@ -1,5 +1,7 @@
 ## Deploy the microservices
 
+#### Create a bucket and edit the name in main.py 
+
 #### Create the repo ECR
 `aws ecr create-repository --repository-name twich-analytica/classifier`
 
