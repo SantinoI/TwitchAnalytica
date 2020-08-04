@@ -14,6 +14,8 @@ aws cloudformation deploy \
 Check the status at: https://console.aws.amazon.com/cloudformation/ . 
 Wait until Status become **CREATE_COMPLETE**
 
+## Create the Buckets and upload the f/e, follow the [frontend/README.md](frontend/README.md)
+
 ## Deploy the microservices
 Now we need to:
 1. Create a repository in ECR
